@@ -3,9 +3,9 @@ import 'package:intl/intl.dart';
 import 'package:kitchenowl/cubits/household_cubit.dart';
 import 'package:kitchenowl/helpers/build_context_extension.dart';
 import 'package:kitchenowl/item_icons.dart';
+import 'package:kitchenowl/kitchenowl.dart';
 import 'package:kitchenowl/models/item.dart';
 import 'package:kitchenowl/models/member.dart';
-import 'package:kitchenowl/styles/dynamic.dart';
 import 'package:kitchenowl/widgets/selectable_button_card.dart';
 import 'package:kitchenowl/widgets/selectable_button_list_tile.dart';
 import 'package:kitchenowl/widgets/user_circle_avatar.dart';
@@ -78,10 +78,13 @@ class ShoppingItemWidget<T extends Item> extends StatelessWidget {
               ),
             ),
           if (member != null)
-            UserCircleAvatar(
-              user: member,
-              radius: 10,
-              textScaler: const TextScaler.linear(0.6),
+            Tooltip(
+              message: AppLocalizations.of(context)!.assignedTo(member.name),
+              child: UserCircleAvatar(
+                user: member,
+                radius: 10,
+                textScaler: const TextScaler.linear(0.6),
+              ),
             ),
         ],
       ),
