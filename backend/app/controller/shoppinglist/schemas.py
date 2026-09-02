@@ -9,6 +9,8 @@ class GetShoppingLists(Schema):
 class AddItemByName(Schema):
     name = fields.String(required=True)
     description = fields.String()
+    # Automatische Erkennung von "@name" und Datum im Text unterdrücken
+    parse_annotations = fields.Boolean(load_default=True)
 
 
 class AddRecipeItems(Schema):
@@ -43,6 +45,12 @@ class GetRecentItems(Schema):
 
 class UpdateDescription(Schema):
     description = fields.String(required=True)
+    # Explizite Zuweisung / Datum von der Detailseite.
+    # Feld weglassen = unverändert lassen; null = zurücksetzen.
+    assigned_to = fields.Integer(allow_none=True)
+    due_date = fields.Date(allow_none=True)
+    # Bei true wird die Beschreibung zusätzlich nach "@name"/Datum durchsucht
+    parse_annotations = fields.Boolean(load_default=False)
 
 
 class RemoveItem(Schema):

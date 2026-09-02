@@ -2,6 +2,7 @@ import 'package:kitchenowl/app.dart';
 import 'package:kitchenowl/enums/shoppinglist_sorting.dart';
 import 'package:kitchenowl/models/household.dart';
 import 'package:kitchenowl/models/item.dart';
+import 'package:kitchenowl/models/nullable.dart';
 import 'package:kitchenowl/models/shoppinglist.dart';
 import 'package:kitchenowl/services/storage/mem_storage.dart';
 import 'package:kitchenowl/services/transaction.dart';
@@ -132,9 +133,12 @@ class TransactionShoppingListAddItem extends Transaction<bool> {
   @override
   Future<bool?> runOnline() {
     if (item.id != null) {
+      // Adding an existing catalog item: let the backend still pick up an
+      // "@name" / date typed into the description.
       return ApiService.getInstance().putItem(
         shoppinglist,
         item,
+        parseAnnotations: true,
       );
     } else {
       return ApiService.getInstance().addItemByName(
@@ -276,11 +280,20 @@ class TransactionShoppingListUpdateItem extends Transaction<bool> {
   final Item item;
   final String description;
 
+  /// Explicit assignee change from the item detail page.
+  /// `null` = not changed, `Nullable(null)` = cleared, `Nullable(id)` = set.
+  final Nullable<int>? assignedTo;
+
+  /// Explicit purchase-date change from the item detail page.
+  final Nullable<DateTime>? dueDate;
+
   TransactionShoppingListUpdateItem({
     required this.household,
     required this.shoppinglist,
     required this.item,
     required this.description,
+    this.assignedTo,
+    this.dueDate,
     DateTime? timestamp,
   }) : super.internal(
           timestamp ?? DateTime.now(),
@@ -296,6 +309,14 @@ class TransactionShoppingListUpdateItem extends Transaction<bool> {
         shoppinglist: ShoppingList.fromJson(map['shoppinglist']),
         item: Item.fromJson(map['item']),
         description: map['description'],
+        assignedTo: map.containsKey('assignedToChanged') &&
+                map['assignedToChanged'] == true
+            ? Nullable<int>(map['assignedTo'] as int?)
+            : null,
+        dueDate: map.containsKey('dueDateChanged') && map['dueDateChanged'] == true
+            ? Nullable<DateTime>(
+                ShoppinglistItem.parseDueDateFromWire(map['dueDate']))
+            : null,
         timestamp: timestamp,
       );
 
@@ -309,6 +330,10 @@ class TransactionShoppingListUpdateItem extends Transaction<bool> {
       "shoppinglist": shoppinglist.toJsonWithId(),
       "item": item.toJsonWithId(),
       "description": description,
+      "assignedToChanged": assignedTo != null,
+      "assignedTo": assignedTo?.value,
+      "dueDateChanged": dueDate != null,
+      "dueDate": ShoppinglistItem.dueDateToWire(dueDate?.value),
     });
 
   @override
@@ -321,8 +346,12 @@ class TransactionShoppingListUpdateItem extends Transaction<bool> {
 
     if (item is ShoppinglistItem) {
       final int i = latestShoppingList.items.indexWhere((e) => e.id == item.id);
-      latestShoppingList.items[i] =
-          (item as ShoppinglistItem).copyWith(description: description);
+      if (i < 0) return false;
+      latestShoppingList.items[i] = latestShoppingList.items[i].copyWith(
+        description: description,
+        assignedToId: assignedTo,
+        dueDate: dueDate,
+      );
       MemStorage.getInstance().writeShoppingLists(household, shoppingLists);
 
       return true;
@@ -344,6 +373,8 @@ class TransactionShoppingListUpdateItem extends Transaction<bool> {
     return ApiService.getInstance().putItem(
       shoppinglist,
       ItemWithDescription.fromItem(item: item, description: description),
+      assignedTo: assignedTo,
+      dueDate: dueDate,
     );
   }
 }

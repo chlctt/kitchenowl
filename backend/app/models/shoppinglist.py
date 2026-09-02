@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Any, Self, List, TYPE_CHECKING, cast
 from app import db
 from app.helpers import DbModelAuthorizeMixin
@@ -69,6 +70,13 @@ class ShoppinglistItems(Model):
     created_by: Mapped[int | None] = db.Column(
         db.Integer, db.ForeignKey("user.id"), nullable=True
     )
+    # Mitglied, dem dieser Artikel zugewiesen wurde (z.B. per "@name")
+    assigned_to: Mapped[int | None] = db.Column(
+        db.Integer, db.ForeignKey("user.id"), nullable=True
+    )
+    # Datum (UTC-Mitternacht), an dem der Artikel eingekauft werden soll.
+    # Als DateTime gespeichert, weil der JSON-Provider nur datetime serialisiert.
+    due_date: Mapped["datetime | None"] = db.Column(db.DateTime, nullable=True)
 
     item: Mapped["Item"] = cast(
         Mapped["Item"],
@@ -92,6 +100,14 @@ class ShoppinglistItems(Model):
             uselist=False,
         ),
     )
+    assigned_to_user: Mapped["User"] = cast(
+        Mapped["User"],
+        db.relationship(
+            "User",
+            foreign_keys=[assigned_to],
+            uselist=False,
+        ),
+    )
 
     def obj_to_item_dict(self) -> dict[str, Any]:
         res = self.item.obj_to_dict()
@@ -99,6 +115,8 @@ class ShoppinglistItems(Model):
         res["created_at"] = getattr(self, "created_at")
         res["updated_at"] = getattr(self, "updated_at")
         res["created_by"] = getattr(self, "created_by")
+        res["assigned_to"] = getattr(self, "assigned_to")
+        res["due_date"] = getattr(self, "due_date")
         return res
 
     @classmethod

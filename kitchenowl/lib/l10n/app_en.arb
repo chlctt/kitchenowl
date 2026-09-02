@@ -56,6 +56,15 @@
   "@appTitle": {
     "description": "The title of the app"
   },
+  "@assignTo": {},
+  "@assignedTo": {
+    "placeholders": {
+      "name": {
+        "example": "Tom",
+        "type": "String"
+      }
+    }
+  },
   "@automaticIngredientDetection": {},
   "@back": {},
   "@balances": {},
@@ -333,6 +342,7 @@
   "@private": {},
   "@privateRecipeDescription": {},
   "@profile": {},
+  "@purchaseDate": {},
   "@public": {},
   "@publicRecipeDescription": {},
   "@reason": {},
@@ -533,6 +543,8 @@
   "addTag": "Add tag",
   "addedBy": "Added by {name}",
   "address": "Address",
+  "assignTo": "Assign to",
+  "assignedTo": "Assigned to {name}",
   "admin": "Admin",
   "analysingWebsite": "Analysing website...",
   "appDescription": "KitchenOwl helps you organize your grocery life.",
@@ -701,6 +713,7 @@
   "private": "Private",
   "privateRecipeDescription": "Only members of the household can view the recipe.",
   "profile": "Profile",
+  "purchaseDate": "Purchase date",
   "public": "Public",
   "publicRecipeDescription": "The recipe is public and might be suggested to others.",
   "reason": "Reason",

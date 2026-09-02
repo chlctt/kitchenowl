@@ -207,6 +207,11 @@ class User(Model):
         ).all():
             s.created_by = None
             s.save()
+        for s in ShoppinglistItems.query.filter(
+            ShoppinglistItems.assigned_to == self.id
+        ).all():
+            s.assigned_to = None
+            s.save()
         super().delete()
 
     @classmethod

@@ -11,6 +11,7 @@ import 'package:kitchenowl/helpers/item_description_parser.dart';
 import 'package:kitchenowl/models/category.dart';
 import 'package:kitchenowl/models/item.dart';
 import 'package:kitchenowl/kitchenowl.dart';
+import 'package:kitchenowl/models/member.dart';
 import 'package:kitchenowl/models/shoppinglist.dart';
 import 'package:kitchenowl/models/update_value.dart';
 import 'package:kitchenowl/widgets/item_popup_menu_button.dart';
@@ -220,6 +221,108 @@ class _ItemPageState<T extends Item> extends State<ItemPage<T>> {
                                 ),
                               ],
                             ),
+                            if (widget.item is ShoppinglistItem &&
+                                !App.isOffline &&
+                                context.readOrNull<HouseholdCubit>() != null)
+                              BlocBuilder<ItemEditCubit, ItemEditState>(
+                                bloc: cubit,
+                                buildWhen: (prev, curr) =>
+                                    prev.assignedToId != curr.assignedToId ||
+                                    prev.dueDate != curr.dueDate,
+                                builder: (context, state) {
+                                  final members = context
+                                          .read<HouseholdCubit>()
+                                          .state
+                                          .household
+                                          .member ??
+                                      <Member>[];
+
+                                  return Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        AppLocalizations.of(context)!.assignTo,
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodySmall,
+                                      ),
+                                      DropdownButton<int?>(
+                                        value: members.any((m) =>
+                                                m.id == state.assignedToId)
+                                            ? state.assignedToId
+                                            : null,
+                                        isExpanded: true,
+                                        items: [
+                                          DropdownMenuItem(
+                                            value: null,
+                                            child: Text(
+                                              AppLocalizations.of(context)!
+                                                  .none,
+                                            ),
+                                          ),
+                                          for (final m in members)
+                                            DropdownMenuItem(
+                                              value: m.id,
+                                              child: Text(m.name),
+                                            ),
+                                        ],
+                                        onChanged: cubit.setAssignedTo,
+                                      ),
+                                      ListTile(
+                                        contentPadding: EdgeInsets.zero,
+                                        title: Text(
+                                          AppLocalizations.of(context)!
+                                              .purchaseDate,
+                                        ),
+                                        subtitle: state.dueDate != null
+                                            ? Text(
+                                                DateFormat.yMMMEd().format(
+                                                  state.dueDate!,
+                                                ),
+                                              )
+                                            : null,
+                                        trailing: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            if (state.dueDate != null)
+                                              IconButton(
+                                                icon: const Icon(
+                                                    Icons.clear_rounded),
+                                                onPressed: () =>
+                                                    cubit.setDueDate(null),
+                                              ),
+                                            IconButton(
+                                              icon: const Icon(
+                                                  Icons.event_rounded),
+                                              onPressed: () async {
+                                                final now = DateTime.now();
+                                                final picked =
+                                                    await showDatePicker(
+                                                  context: context,
+                                                  initialDate:
+                                                      state.dueDate ?? now,
+                                                  firstDate: DateTime(
+                                                      now.year - 1),
+                                                  lastDate: DateTime(
+                                                      now.year + 3),
+                                                );
+                                                if (picked != null) {
+                                                  cubit.setDueDate(DateTime(
+                                                    picked.year,
+                                                    picked.month,
+                                                    picked.day,
+                                                  ));
+                                                }
+                                              },
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  );
+                                },
+                              ),
                             if (widget.item is ShoppinglistItem)
                               ListTile(
                                 contentPadding: EdgeInsets.zero,

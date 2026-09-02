@@ -25,7 +25,26 @@ from .schemas import (
 from app.errors import NotFoundRequest, InvalidUsage
 from datetime import datetime, timedelta, timezone
 import app.util.description_merger as description_merger
+from app.util import parse_item_annotations
 from app import socketio
+
+
+def _household_member_users(shoppinglist: Shoppinglist) -> list:
+    """Alle User-Objekte der Haushaltsmitglieder – für die @-Zuweisung."""
+    try:
+        return [m.user for m in shoppinglist.household.member]
+    except Exception:
+        return []
+
+
+def _to_due_datetime(value) -> datetime | None:
+    """date/datetime -> datetime auf UTC-Mitternacht (der JSON-Provider kann
+    keine reinen date-Objekte serialisieren)."""
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        return value.replace(hour=0, minute=0, second=0, microsecond=0)
+    return datetime(value.year, value.month, value.day)
 
 
 shoppinglist = Blueprint("shoppinglist", __name__)
@@ -141,7 +160,27 @@ def updateItemDescription(args, id: int, item_id: int):
         con.created_by = current_user.id
     con.shoppinglist.checkAuthorized()
 
-    con.description = args["description"] or ""
+    description = args["description"] or ""
+
+    # Explizite Felder von der Detailseite gewinnen; fehlt das Feld,
+    # bleibt der bisherige Wert erhalten.
+    if "assigned_to" in args:
+        con.assigned_to = args["assigned_to"]
+    if "due_date" in args:
+        con.due_date = _to_due_datetime(args["due_date"])
+
+    # Optional zusätzlich die Beschreibung nach "@name"/Datum durchsuchen
+    if args.get("parse_annotations", False):
+        parsed = parse_item_annotations(
+            description, _household_member_users(con.shoppinglist)
+        )
+        description = parsed.name
+        if "assigned_to" not in args and parsed.assigned_to_id is not None:
+            con.assigned_to = parsed.assigned_to_id
+        if "due_date" not in args and parsed.due_date is not None:
+            con.due_date = _to_due_datetime(parsed.due_date)
+
+    con.description = description
     con.save()
     socketio.emit(
         "shoppinglist_item:add",
@@ -289,15 +328,31 @@ def addShoppinglistItemByName(args, id):
         raise NotFoundRequest()
     shoppinglist.checkAuthorized()
 
-    item = Item.find_by_name(shoppinglist.household_id, args["name"])
+    name = args["name"]
+    description = args["description"] if "description" in args else ""
+    assigned_to = None
+    due_date = None
+    if args.get("parse_annotations", True):
+        parsed = parse_item_annotations(
+            name,
+            _household_member_users(shoppinglist),
+            description=description,
+        )
+        name = parsed.name
+        description = parsed.description or ""
+        assigned_to = parsed.assigned_to_id
+        due_date = _to_due_datetime(parsed.due_date)
+
+    item = Item.find_by_name(shoppinglist.household_id, name)
     if not item:
-        item = Item.create_by_name(shoppinglist.household_id, args["name"])
+        item = Item.create_by_name(shoppinglist.household_id, name)
 
     con = ShoppinglistItems.find_by_ids(shoppinglist.id, item.id)
     if not con:
-        description = args["description"] if "description" in args else ""
         con = ShoppinglistItems(description=description)
         con.created_by = current_user.id
+        con.assigned_to = assigned_to
+        con.due_date = due_date
         con.item = item
         con.shoppinglist = shoppinglist
         con.save()

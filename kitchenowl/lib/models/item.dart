@@ -156,6 +156,12 @@ class ShoppinglistItem extends ItemWithDescription {
   final int? createdById;
   final DateTime? createdAt;
 
+  /// Id of the household member this item is delegated to (e.g. via "@name").
+  final int? assignedToId;
+
+  /// Date (day precision, stored as UTC midnight) when the item should be bought.
+  final DateTime? dueDate;
+
   const ShoppinglistItem({
     super.id,
     required super.name,
@@ -167,6 +173,8 @@ class ShoppinglistItem extends ItemWithDescription {
     super.isDefault,
     this.createdById,
     this.createdAt,
+    this.assignedToId,
+    this.dueDate,
   });
 
   factory ShoppinglistItem.fromJson(Map<String, dynamic> map) {
@@ -185,8 +193,27 @@ class ShoppinglistItem extends ItemWithDescription {
               .toLocal()
           : null,
       createdById: map['created_by'],
+      assignedToId: map['assigned_to'],
+      dueDate: _parseDueDate(map['due_date']),
     );
   }
+
+  /// The backend stores the purchase date as UTC midnight. We keep it in memory
+  /// as a local `DateTime` at midnight of the same calendar day so that
+  /// formatting and "is it in the future" checks work in the user's timezone.
+  static DateTime? parseDueDateFromWire(dynamic ms) {
+    if (ms == null) return null;
+    final utc = DateTime.fromMillisecondsSinceEpoch(ms, isUtc: true);
+    return DateTime(utc.year, utc.month, utc.day);
+  }
+
+  static DateTime? _parseDueDate(dynamic ms) => parseDueDateFromWire(ms);
+
+  /// UTC-midnight epoch for the calendar day of [dueDate] – the wire format.
+  static int? dueDateToWire(DateTime? dueDate) => dueDate == null
+      ? null
+      : DateTime.utc(dueDate.year, dueDate.month, dueDate.day)
+          .millisecondsSinceEpoch;
 
   /// Turn an Item into a Shopping list item.
   ///
@@ -196,6 +223,8 @@ class ShoppinglistItem extends ItemWithDescription {
     String? description,
     DateTime? createdAt,
     int? createdById,
+    int? assignedToId,
+    DateTime? dueDate,
   }) =>
       ShoppinglistItem(
         id: item.id,
@@ -209,6 +238,9 @@ class ShoppinglistItem extends ItemWithDescription {
         defaultKey: item.defaultKey,
         createdAt: createdAt ?? DateTime.now(),
         createdById: createdById,
+        assignedToId:
+            assignedToId ?? (item is ShoppinglistItem ? item.assignedToId : null),
+        dueDate: dueDate ?? (item is ShoppinglistItem ? item.dueDate : null),
       );
 
   @override
@@ -217,6 +249,8 @@ class ShoppinglistItem extends ItemWithDescription {
     Nullable<Category>? category,
     Nullable<String>? icon,
     String? description,
+    Nullable<int>? assignedToId,
+    Nullable<DateTime>? dueDate,
   }) =>
       ShoppinglistItem(
         id: id,
@@ -227,16 +261,23 @@ class ShoppinglistItem extends ItemWithDescription {
         ordering: ordering,
         isDefault: isDefault,
         defaultKey: defaultKey,
+        createdById: createdById,
+        createdAt: createdAt,
+        assignedToId: (assignedToId ?? Nullable(this.assignedToId)).value,
+        dueDate: (dueDate ?? Nullable(this.dueDate)).value,
       );
 
   @override
-  List<Object?> get props => super.props + [createdAt, createdById];
+  List<Object?> get props =>
+      super.props + [createdAt, createdById, assignedToId, dueDate];
 
   @override
   Map<String, dynamic> toJsonWithId() => super.toJsonWithId()
     ..addAll({
       "created_at": createdAt?.toUtc().millisecondsSinceEpoch,
       "created_by": createdById,
+      "assigned_to": assignedToId,
+      "due_date": dueDateToWire(dueDate),
     });
 }
 

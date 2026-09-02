@@ -10,6 +10,9 @@ class SelectableButtonListTile extends StatefulWidget {
   final void Function()? onPressed;
   final void Function()? onLongPressed;
   final Widget? extraOption;
+
+  /// Small persistent badge shown in the trailing slot (assignee / due date).
+  final Widget? annotation;
   final ListStyle listStyle;
 
   const SelectableButtonListTile({
@@ -22,6 +25,7 @@ class SelectableButtonListTile extends StatefulWidget {
     this.onLongPressed,
     this.raised = true,
     this.extraOption,
+    this.annotation,
     this.listStyle = ListStyle.cards,
   });
 
@@ -101,7 +105,7 @@ class _SelectableButtonListTileState extends State<SelectableButtonListTile> {
                         : null,
                     icon: const Icon(Icons.more_horiz_rounded),
                   )
-                : null,
+                : widget.annotation,
       ),
     );
 

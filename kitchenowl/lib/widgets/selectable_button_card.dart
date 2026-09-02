@@ -9,6 +9,9 @@ class SelectableButtonCard extends StatefulWidget {
   final void Function()? onLongPressed;
   final Widget? extraOption;
 
+  /// Small persistent badge overlaid on the card (assignee / due date).
+  final Widget? annotation;
+
   const SelectableButtonCard({
     super.key,
     this.icon,
@@ -18,6 +21,7 @@ class SelectableButtonCard extends StatefulWidget {
     this.onLongPressed,
     this.selected = false,
     this.extraOption,
+    this.annotation,
   });
 
   @override
@@ -57,6 +61,11 @@ class _SelectableButtonCardState extends State<SelectableButtonCard> {
           child: Stack(
             alignment: AlignmentDirectional.topEnd,
             children: [
+              if (widget.annotation != null)
+                Align(
+                  alignment: Alignment.bottomLeft,
+                  child: widget.annotation!,
+                ),
               if (widget.extraOption != null && mouseHover) widget.extraOption!,
               if (widget.extraOption == null &&
                   widget.onLongPressed != null &&

@@ -3,8 +3,16 @@ import 'dart:convert';
 import 'package:kitchenowl/enums/shoppinglist_sorting.dart';
 import 'package:kitchenowl/models/household.dart';
 import 'package:kitchenowl/models/item.dart';
+import 'package:kitchenowl/models/nullable.dart';
 import 'package:kitchenowl/models/shoppinglist.dart';
 import 'package:kitchenowl/services/api/api_service.dart';
+
+String _formatDueDate(DateTime date) {
+  // `date` is a local DateTime at midnight; send its calendar day as ISO.
+  final month = date.month.toString().padLeft(2, '0');
+  final day = date.day.toString().padLeft(2, '0');
+  return '${date.year}-$month-$day';
+}
 
 extension ShoppinglistApi on ApiService {
   static const baseRoute = '/shoppinglist';
@@ -64,11 +72,26 @@ extension ShoppinglistApi on ApiService {
 
   Future<bool> putItem(
     ShoppingList shoppinglist,
-    Item item,
-  ) async {
+    Item item, {
+    Nullable<int>? assignedTo,
+    Nullable<DateTime>? dueDate,
+    bool parseAnnotations = false,
+  }) async {
     final Map<String, dynamic> data = {};
     if (item is ItemWithDescription) {
       data['description'] = item.description;
+    }
+    if (parseAnnotations) {
+      data['parse_annotations'] = true;
+    }
+    // Only sent when the caller explicitly edits them (detail page); a plain
+    // description edit omits the keys so the backend keeps the existing values.
+    if (assignedTo != null) {
+      data['assigned_to'] = assignedTo.value;
+    }
+    if (dueDate != null) {
+      data['due_date'] =
+          dueDate.value != null ? _formatDueDate(dueDate.value!) : null;
     }
     final res = await put(
       '${route(shoppinglist: shoppinglist)}/item/${item.id}',

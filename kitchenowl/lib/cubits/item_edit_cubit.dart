@@ -40,6 +40,8 @@ class ItemEditCubit<T extends Item> extends Cubit<ItemEditState> {
           icon: item.icon,
           name: item.name,
           category: item.category,
+          assignedToId: (item is ShoppinglistItem) ? item.assignedToId : null,
+          dueDate: (item is ShoppinglistItem) ? item.dueDate : null,
         )) {
     refresh();
   }
@@ -65,13 +67,20 @@ class ItemEditCubit<T extends Item> extends Cubit<ItemEditState> {
   }
 
   Future<void> saveItem() async {
-    if (shoppingList != null && state.hasChangedDescription(_item)) {
+    final assigneeChanged = state.hasChangedAssignee(_item);
+    final dueDateChanged = state.hasChangedDueDate(_item);
+    if (shoppingList != null &&
+        (state.hasChangedDescription(_item) ||
+            assigneeChanged ||
+            dueDateChanged)) {
       await TransactionHandler.getInstance()
           .runTransaction(TransactionShoppingListUpdateItem(
         household: household!,
         shoppinglist: shoppingList!,
         item: _item,
         description: state.description,
+        assignedTo: assigneeChanged ? Nullable(state.assignedToId) : null,
+        dueDate: dueDateChanged ? Nullable(state.dueDate) : null,
       ));
     }
     if (state.hasChangedItem(_item)) {
@@ -128,6 +137,14 @@ class ItemEditCubit<T extends Item> extends Cubit<ItemEditState> {
       icon: Nullable(icon),
     ));
   }
+
+  void setAssignedTo(int? userId) {
+    emit(state.copyWith(assignedToId: Nullable(userId)));
+  }
+
+  void setDueDate(DateTime? date) {
+    emit(state.copyWith(dueDate: Nullable(date)));
+  }
 }
 
 class ItemEditState extends Equatable {
@@ -137,6 +154,8 @@ class ItemEditState extends Equatable {
   final List<Recipe> recipes;
   final Category? category;
   final bool hasMerged;
+  final int? assignedToId;
+  final DateTime? dueDate;
 
   const ItemEditState({
     this.name = "",
@@ -145,6 +164,8 @@ class ItemEditState extends Equatable {
     this.recipes = const [],
     this.category,
     this.hasMerged = false,
+    this.assignedToId,
+    this.dueDate,
   });
 
   ItemEditState copyWith({
@@ -154,6 +175,8 @@ class ItemEditState extends Equatable {
     List<Recipe>? recipes,
     Nullable<Category>? category,
     bool? hasMerged,
+    Nullable<int>? assignedToId,
+    Nullable<DateTime>? dueDate,
   }) =>
       ItemEditState(
         name: name ?? this.name,
@@ -162,14 +185,19 @@ class ItemEditState extends Equatable {
         recipes: recipes ?? this.recipes,
         category: (category ?? Nullable(this.category)).value,
         hasMerged: hasMerged ?? this.hasMerged,
+        assignedToId: (assignedToId ?? Nullable(this.assignedToId)).value,
+        dueDate: (dueDate ?? Nullable(this.dueDate)).value,
       );
 
   @override
   List<Object?> get props =>
-      [name, description, icon, recipes, category, hasMerged];
+      [name, description, icon, recipes, category, hasMerged, assignedToId, dueDate];
 
   bool hasChanged(Item comparedTo) =>
-      hasChangedItem(comparedTo) || hasChangedDescription(comparedTo);
+      hasChangedItem(comparedTo) ||
+      hasChangedDescription(comparedTo) ||
+      hasChangedAssignee(comparedTo) ||
+      hasChangedDueDate(comparedTo);
 
   bool hasChangedItem(Item comparedTo) =>
       comparedTo.category != category ||
@@ -181,4 +209,11 @@ class ItemEditState extends Equatable {
     return comparedTo is ItemWithDescription &&
         (comparedTo).description != description;
   }
+
+  bool hasChangedAssignee(Item comparedTo) =>
+      comparedTo is ShoppinglistItem &&
+      comparedTo.assignedToId != assignedToId;
+
+  bool hasChangedDueDate(Item comparedTo) =>
+      comparedTo is ShoppinglistItem && comparedTo.dueDate != dueDate;
 }
