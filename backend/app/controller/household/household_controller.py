@@ -53,6 +53,12 @@ def addHousehold(args):
         household.planner_feature = args["planner_feature"]
     if "expenses_feature" in args:
         household.expenses_feature = args["expenses_feature"]
+    if "tasks_feature" in args:
+        household.tasks_feature = args["tasks_feature"]
+    if "tasks_only_assignee_can_complete" in args:
+        household.tasks_only_assignee_can_complete = args[
+            "tasks_only_assignee_can_complete"
+        ]
     if "view_ordering" in args:
         household.view_ordering = args["view_ordering"]
     if "link" in args:
@@ -111,6 +117,12 @@ def updateHousehold(args, household_id):
         household.planner_feature = args["planner_feature"]
     if "expenses_feature" in args:
         household.expenses_feature = args["expenses_feature"]
+    if "tasks_feature" in args:
+        household.tasks_feature = args["tasks_feature"]
+    if "tasks_only_assignee_can_complete" in args:
+        household.tasks_only_assignee_can_complete = args[
+            "tasks_only_assignee_can_complete"
+        ]
     if "view_ordering" in args:
         household.view_ordering = args["view_ordering"]
     if "link" in args:

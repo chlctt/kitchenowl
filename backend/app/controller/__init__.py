@@ -4,6 +4,7 @@ from .user import *
 from .recipe import *
 from .shoppinglist import *
 from .planner import *
+from .task import *
 from .onboarding import *
 from .exportimport import *
 from .settings import *

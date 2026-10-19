@@ -12,6 +12,8 @@ class AddHousehold(Schema):
     language = fields.String()
     planner_feature = fields.Boolean()
     expenses_feature = fields.Boolean()
+    tasks_feature = fields.Boolean()
+    tasks_only_assignee_can_complete = fields.Boolean()
     view_ordering = fields.List(fields.String)
     member = fields.List(fields.Integer)
 
@@ -27,6 +29,8 @@ class UpdateHousehold(Schema):
     language = fields.String()
     planner_feature = fields.Boolean()
     expenses_feature = fields.Boolean()
+    tasks_feature = fields.Boolean()
+    tasks_only_assignee_can_complete = fields.Boolean()
     view_ordering = fields.List(fields.String)
 
 

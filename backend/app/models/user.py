@@ -200,13 +200,14 @@ class User(Model):
         for f in File.query.filter(File.created_by == self.id).all():
             f.created_by = None
             f.save()
-        from app.models import ShoppinglistItems
+        from app.models import ShoppinglistItems, Task
 
         for s in ShoppinglistItems.query.filter(
             ShoppinglistItems.created_by == self.id
         ).all():
             s.created_by = None
             s.save()
+        Task.remove_user(None, self.id)
         super().delete()
 
     @classmethod
