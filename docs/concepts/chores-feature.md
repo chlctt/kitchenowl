@@ -1,6 +1,6 @@
 # Konzept: Chores (Issue #512, TomBursch/kitchenowl)
 
-Status: Entwurf v3 (Review eingearbeitet, Abschnitt 9; Anforderungsänderung Abschnitt 10 hat Vorrang vor Abschnitt 1-8)
+Status: Entwurf v4 (Abschnitt 11 = Entscheidungen des Auftraggebers, hat Vorrang vor allem Früheren)
 
 ## 1. Anforderungen (aus Issue #512 und #55)
 
@@ -174,3 +174,28 @@ Diese Änderung hat Vorrang vor den Abschnitten 1-8, soweit sie widerspricht. Si
 - Zusätzliche Tests: Intervall-Berechnung (Vergangenheit/Zukunft), Einmal-Chore-Archivierung, ungültige Kombinationen, Sortierung.
 - Zeitzonen: `due_date` als reines Datum ohne Uhrzeit; "heute" serverseitig in UTC, Clients zeigen lokales Datum (offene Kleinigkeit, im Review zu prüfen).
 - Aufwand wächst um etwa 20 %; Phasen: Fälligkeit/Wiederholung bleibt im MVP, Historie-UI weiter Phase 2.
+
+## 11. Entscheidungen des Auftraggebers (v4)
+
+Antworten auf die Rückfragen aus §3. Sie haben Vorrang vor allen früheren Abschnitten.
+
+| # | Entscheidung | Konsequenz |
+|---|---|---|
+| F1 | Neuer Tab direkt **nach dem ersten Tab** (Einkauf). Der erste Tab heißt statt "Liste" künftig "Einkauf". | `ViewsEnum.tasks` an Index 1 (hinter `items`). Für Bestandshaushalte mit gespeichertem `view_ordering` fügt `addMissing` den Tab hinter `items` ein statt am Ende (siehe unten). Kurzbezeichnung: neuer Key (z.B. `shoppingShort`) statt Änderung von `list`, weil `loc.list` auch in `settings_page.dart:215` benutzt wird. de: "Einkauf", en: "Shopping". |
+| F2 | **Allgemeine ToDos** statt nur Rotations-Chores (#512 und #55). | Entität heißt intern `task` (Tabellen `task`, `task_participant`, `task_completion`; Controller `/<hid>/tasks`), Tab "Aufgaben"/"Tasks". "Chore" aus §4-§10 liest sich als "Task". Bitte Benennung bestätigen. |
+| F3 | Rotation **fest (ordered) oder zufällig** wählbar, mit **definierbaren Intervallen**. | Interpretation: Wiederholung `repeat_interval_days` frei definierbar (Tage; UI-Presets täglich/wöchentlich/monatlich + eigener Wert). Die Rotation läuft weiter bei jedem "erledigt". Falls stattdessen die Rotation selbst nach Zeitintervall wechseln soll, bitte sagen. |
+| F4 | **Pro Haushalt einstellbar** (Einstellung). | Gemeint als: wer darf abhaken, "jedes Mitglied" oder "nur der Zugewiesene". Neue Spalte `household.tasks_complete_policy` (`anyone` | `assignee`, Default `anyone`), Prüfung im `done`-Endpunkt (403). Bitte bestätigen, falls anders gemeint. |
+| F5 | Aufgaben **ohne Zuweisung** erlaubt (offen). | `assigned_to` nullable; jeder darf übernehmen (Policy `assignee` gilt dann nicht, offene Aufgaben kann jeder abhaken oder sich selbst zuweisen). |
+| F6 | Merkmal **"wiederkehrend"** (`recurring`) statt Ableitung aus Datum/Intervall. | Ersetzt die Regel aus §10. `recurring=false`: einmalig, beim Erledigen `completed_at` setzen und aus der Liste nehmen. `recurring=true` ohne Intervall: bleibt dauerhaft stehen (Issue-#512-Verhalten, Rotation läuft). `recurring=true` mit Intervall: zusätzlich Fälligkeit rückt weiter (Regel aus §10). Validierung: Intervall nur mit `recurring=true` und `due_date`; Rotation ist für einmalige und wiederkehrende Aufgaben zulässig. |
+| F7 | **Erledigt-Historie** wird mit geplant. | `task_completion` im MVP schreiben; Auswertung pro Person ("wer macht wie viel", auch `created_by` für Mental Load) als eigene Ansicht in Phase 2, aber Endpunkt `GET /<hid>/tasks/completions` schon im MVP, damit Daten abrufbar sind. |
+
+**Tab-Reihenfolge (F1) im Detail**
+- Standardreihenfolge neuer Haushalte: Einkauf, Aufgaben, Rezepte, Planer, Bilanzen, Mehr.
+- `ViewsEnum.addMissing` ändert sich: fehlende Views werden an ihrer Enum-Position relativ zum Vorgänger eingefügt (Aufgaben direkt hinter Einkauf), `more` bleibt zuletzt. Das ändert das Verhalten für Planner/Balances nicht, weil diese bei Bestandshaushalten bereits enthalten sind.
+- Aufgaben-Tab ist optional (Toggle `tasks_feature`, Default aus), ist also nur sichtbar, wenn ein Haushalt ihn aktiviert.
+- 6 Tabs auf schmalen Displays: Layout in Navigationsleiste und Drawer prüfen.
+
+**Noch offen**
+- Dritter Anforderungspunkt aus der vorigen Nachricht war leer.
+- Benennung Chore/Task und Auslegung von F3/F4 (siehe oben).
+- Ein Review der erweiterten Anforderungen (Abschnitte 10-11) steht aus.
