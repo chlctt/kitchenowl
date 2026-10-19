@@ -246,6 +246,18 @@ class _HouseholdPageState extends State<HouseholdPage>
             );
           }
 
+          // The bottom bar fits five destinations: with more active views the
+          // last ones move into the "more" sheet.
+          final List<ViewsEnum> barPages = pages.length > 5
+              ? [
+                  ...pages.where((e) => e != ViewsEnum.more).take(4),
+                  ViewsEnum.more,
+                ]
+              : pages;
+          final int barSelectedIndex = barPages.contains(pages[_selectedIndex])
+              ? barPages.indexOf(pages[_selectedIndex])
+              : barPages.indexOf(ViewsEnum.more);
+
           return Scaffold(
             key: scaffoldKey,
             body: body,
@@ -263,7 +275,7 @@ class _HouseholdPageState extends State<HouseholdPage>
                     builder: (context, state) => NavigationBar(
                       labelBehavior:
                           NavigationDestinationLabelBehavior.onlyShowSelected,
-                      destinations: pages
+                      destinations: barPages
                           .map((e) => NavigationDestination(
                                 icon: e.toIconWidget(context) ??
                                     Icon(e.toIcon(context)),
@@ -271,12 +283,11 @@ class _HouseholdPageState extends State<HouseholdPage>
                                 label: e.toLocalizedShortString(context),
                                 tooltip: e.toLocalizedString(context),
                               ))
-                          .take(5)
                           .toList(),
-                      selectedIndex: _selectedIndex,
+                      selectedIndex: barSelectedIndex,
                       onDestinationSelected: (i) => _onItemTapped(
                         context,
-                        pages[i],
+                        barPages[i],
                         pages[_selectedIndex],
                       ),
                     ),

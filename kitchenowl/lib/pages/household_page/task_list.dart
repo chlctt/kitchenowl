@@ -78,6 +78,8 @@ class TaskListPage extends StatelessWidget {
       title: Text(task.name),
       content: Text(l.taskMarkDone),
       confirmText: l.done,
+      confirmBackgroundColor: null,
+      confirmForegroundColor: null,
     );
     if (!confirmed) return;
     final res = await cubit.done(task);
@@ -169,7 +171,14 @@ class TaskListPage extends StatelessWidget {
                             ),
                             trailing: task.isOverdue
                                 ? Chip(
-                                    label: Text(l.taskOverdue),
+                                    label: Text(
+                                      l.taskOverdue,
+                                      style: TextStyle(
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .onErrorContainer,
+                                      ),
+                                    ),
                                     backgroundColor: Theme.of(context)
                                         .colorScheme
                                         .errorContainer,
