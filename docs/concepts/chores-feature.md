@@ -1,6 +1,6 @@
 # Konzept: Chores (Issue #512, TomBursch/kitchenowl)
 
-Status: Entwurf v2 (Review eines unabhängigen Agents eingearbeitet, siehe Abschnitt 9; Abschnitte 4-8 gelten mit den dortigen Korrekturen)
+Status: Entwurf v3 (Review eingearbeitet, Abschnitt 9; Anforderungsänderung Abschnitt 10 hat Vorrang vor Abschnitt 1-8)
 
 ## 1. Anforderungen (aus Issue #512 und #55)
 
@@ -144,3 +144,33 @@ Review durch unabhängigen Agent gegen den Code. Die Machbarkeit ("keine Archite
 **Aufwandsschätzung (korrigiert):** Backend ca. 8 Dateien neu/geändert, Flutter ca. 12 Dateien; MVP realistisch mehrere Tage statt "klein".
 
 **Priorität der Rückfragen (aus Review):** Zuerst Frage 6 (Tab-Platz) und Frage 1 (Umfang #512 vs. #55), da sie das UI- und Datenmodell bestimmen.
+
+## 10. Anforderungsänderung (v3): optionale Rotation, feste Zuweisung, optionale Fälligkeit
+
+Diese Änderung hat Vorrang vor den Abschnitten 1-8, soweit sie widerspricht. Sie bricht bewusst mit dem Issue-Wunsch "keine Fälligkeiten" und nähert das Feature an #55 an. Ein dritter Punkt der Anforderungen war leer und ist noch offen.
+
+**Datenmodell (Änderungen gegenüber §4)**
+- `chore.rotation_mode`: `none | ordered | random`, Default `none`.
+- `chore.assigned_to` ist bei `none` die feste Zuweisung (nullable = offen, jeder kann übernehmen).
+- `chore_participant` wird nur bei `ordered`/`random` genutzt; bei `none` leer. Validierung: Rotation braucht mindestens 2 Teilnehmer.
+- Neu: `due_date` (Datum, nullable), `repeat_interval_days` (int > 0, nullable), `completed_at` (nullable, nur für einmalige Chores).
+- `repeat_interval_days` ohne `due_date` ist ungültig (400).
+
+**Verhalten von `POST /chores/<id>/done`** (immer mit `expected_assigned_to`/409 und Log in `chore_completion`)
+- Rotation `ordered`/`random`: `assigned_to` rückt bei jedem "erledigt" weiter, unabhängig von der Fälligkeit.
+- Rotation `none`: Zuweisung bleibt.
+- Mit `repeat_interval_days`: neue Fälligkeit = alte Fälligkeit + Intervall; liegt das Ergebnis noch in der Vergangenheit, ab heute + Intervall (kein Aufholen von Rückständen). Chore bleibt in der Liste.
+- Ohne Intervall (einmalig): `completed_at` wird gesetzt, der Chore verschwindet aus der Standardliste. Ohne `due_date` und ohne Intervall bleibt der Chore wie im Issue dauerhaft (Rotation ohne Datum), er wird also nicht archiviert. Regel: nur Chores mit `due_date` und ohne Intervall sind einmalig.
+- Erledigte Einmal-Chores: `GET /<hid>/chores?completed=true`; endgültiges Löschen weiter per DELETE.
+
+**Frontend**
+- Sortierung: überfällig zuerst, dann nach Fälligkeit, dann eigene Chores, dann alphabetisch; Chores ohne Datum folgen den datierten.
+- Bearbeiten-Dialog: Zuweisung (Mitglied oder offen), Schalter "Rotation" (Modus + Teilnehmer), optional Fälligkeit, optional "Wiederholen alle N Tage".
+- Überfällige farblich markiert; Long-Press = erledigt bleibt.
+
+**Folgen für Review-Punkte**
+- Randfall 1 Teilnehmer/0 Teilnehmer bei Rotation entfällt (Validierung ≥ 2); bei Mitglied-Entfernung: Teilnehmer ausfallen lassen, bei < 2 Teilnehmern Modus auf `none` mit `assigned_to` = verbliebenes Mitglied oder NULL.
+- Mitglied-Entfernung bei fester Zuweisung: `assigned_to` = NULL.
+- Zusätzliche Tests: Intervall-Berechnung (Vergangenheit/Zukunft), Einmal-Chore-Archivierung, ungültige Kombinationen, Sortierung.
+- Zeitzonen: `due_date` als reines Datum ohne Uhrzeit; "heute" serverseitig in UTC, Clients zeigen lokales Datum (offene Kleinigkeit, im Review zu prüfen).
+- Aufwand wächst um etwa 20 %; Phasen: Fälligkeit/Wiederholung bleibt im MVP, Historie-UI weiter Phase 2.
