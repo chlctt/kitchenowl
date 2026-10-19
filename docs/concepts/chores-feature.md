@@ -24,14 +24,14 @@ Alle neuen Modelle erben von der Projekt-Basis (`db.Model`/`DbModelBase`), Haush
 
 **household** (neue Spalten, Migration mit `server_default`):
 - `tasks_feature` BOOLEAN NOT NULL, Default **false** (auch in `Household.fromJson` und `isViewActive` einheitlich `?? false`).
-- `tasks_complete_policy` String NOT NULL, Default `anyone` (`anyone` | `assignee`). Änderbar nur durch Admin/Owner.
+- `tasks_only_assignee_can_complete` BOOLEAN NOT NULL, Default **false** (Schalter in den Haushaltseinstellungen: false = jedes Mitglied darf abhaken, true = nur die zugewiesene Person). Änderbar nur durch Admin/Owner.
 
 **task**
 - `id`, `household_id` (FK, index, ORM `Household.tasks` mit `cascade="all, delete-orphan"`)
 - `name` String(128) NOT NULL
 - `recurring` Boolean NOT NULL default false
 - `due_date` Date NULL (reines Datum ohne Uhrzeit)
-- `repeat_interval_days` Integer NULL (1..3650)
+- `repeat_every` Integer NULL (1..365) und `repeat_unit` String NULL (`day` | `week` | `month`); beide gesetzt oder beide NULL (Häufigkeit der Aufgabe, z. B. täglich = 1/day, wöchentlich = 1/week, monatlich = 1/month)
 - `rotation_mode` String NOT NULL default `none` (`none` | `ordered` | `random`; String + Schema-Validierung, kein natives Enum)
 - `assigned_to` FK user.id NULL
 - `created_by` FK user.id NULL
@@ -50,13 +50,13 @@ Alle neuen Modelle erben von der Projekt-Basis (`db.Model`/`DbModelBase`), Haush
 
 | Regel | Verhalten |
 |---|---|
-| `repeat_interval_days` gesetzt | nur zusammen mit `recurring=true` **und** `due_date`; sonst 400 |
-| `recurring` true→false | `repeat_interval_days` wird genullt (kein 400) |
-| `due_date` per Update auf NULL | `repeat_interval_days` wird mit genullt |
+| `repeat_every`/`repeat_unit` gesetzt | nur zusammen mit `recurring=true` **und** `due_date`; sonst 400 |
+| `recurring` true→false | `repeat_every`/`repeat_unit` werden genullt (kein 400) |
+| `due_date` per Update auf NULL | `repeat_every`/`repeat_unit` werden mit genullt |
 | `rotation_mode` `ordered`/`random` | mindestens 2 `participants`, alle Mitglieder des Haushalts, keine Duplikate; `assigned_to` ∈ Teilnehmer, sonst auf kleinste Position gesetzt |
 | `rotation_mode` `none` | `participants` werden ignoriert und geleert; `assigned_to` = Mitglied oder NULL (offen) |
 | Offen (`assigned_to` NULL) | nur bei `none`; bei Rotation immer ein Zuständiger |
-| `assigned_to` ändern | erlaubt für alle Mitglieder bei Policy `anyone`; bei `assignee` nur Zuständiger oder Admin (verhindert Umgehung) |
+| `assigned_to` ändern | erlaubt für alle Mitglieder bei ausgeschaltetem Schalter; bei aktivem Schalter nur Zuständiger oder Admin (verhindert Umgehung) |
 | Erledigter Einmal-Task | nicht editierbar außer `completed=false` (Reaktivieren); `completed_at` wird dabei NULL |
 | Nicht-Mitglied als Zuständiger/Teilnehmer | 400 |
 
@@ -72,23 +72,23 @@ Registrierung wie Expense: Household-Blueprint `/<int:household_id>/tasks` und T
 | POST | `/tasks/<id>/done` | erledigen |
 | GET | `/<hid>/tasks/completions` | Historie, paginiert, für alle Haushaltsmitglieder lesbar (MVP: nur `done_by`, `done_at`, `task_id`) |
 
-Das Backend erzwingt `tasks_feature` nicht (wie Planner, bewusste Entscheidung); `tasks_complete_policy` wird erzwungen.
+Das Backend erzwingt `tasks_feature` nicht (wie Planner, bewusste Entscheidung); `tasks_only_assignee_can_complete` wird erzwungen.
 
-**`done`-Logik** (Reihenfolge der Prüfungen: 404 → 403 Policy → 400 bereits erledigt → 409 Konflikt):
+**`done`-Logik** (Reihenfolge der Prüfungen: 404 → 403 Schalter → 400 bereits erledigt → 409 Konflikt):
 - Body: `expected_assigned_to` (Pflichtfeld, `null` = erwartet offen) und `done_on` (lokales Datum des Clients, nur erlaubt ±1 Tag zur Server-UTC-Zeit; Server nutzt es als "heute"). Bei Abweichung des aktuellen `assigned_to`: 409, Client lädt neu (verhindert doppeltes Weiterrotieren).
-- Policy `assignee`: nur der Zuständige (oder Admin) darf, offene Tasks darf jedes Mitglied; bei `anyone` jedes Mitglied.
+- Schalter `tasks_only_assignee_can_complete` an: nur der Zuständige (oder Admin) darf, offene Tasks darf jedes Mitglied; aus: jedes Mitglied.
 - Eine Transaktion: Completion schreiben, `last_done_at` setzen, dann:
   - `recurring=false`: `completed_at` setzen, Rotation irrelevant.
   - `recurring=true`: Rotation `ordered`: nächster nach dem *bisherigen Zuständigen* (nicht nach dem Erledigenden), zyklisch; `random`: zufällig unter den anderen Teilnehmern; `none`: unverändert.
-  - `recurring=true` mit Intervall: neue Fälligkeit = alte `due_date` + Intervall; liegt sie vor `done_on`, dann `done_on` + Intervall (kein Aufholen).
-- Intervalle sind Tage. UI-Presets: täglich (1), wöchentlich (7), alle 14 Tage, eigener Wert. Monatsintervall (Kalendermonat) bewusst nicht im MVP.
+  - `recurring=true` mit Häufigkeit: neue Fälligkeit = alte `due_date` + `repeat_every` × `repeat_unit`; liegt sie vor `done_on`, dann `done_on` + Häufigkeit (kein Aufholen). Monate sind Kalendermonate; fehlt der Tag im Zielmonat, wird auf den Monatsletzten gekürzt (31. Jan → 28. Feb → 28. Mär; Drift bewusst akzeptiert).
+- UI-Presets: täglich, wöchentlich, monatlich, eigener Wert (alle N Tage/Wochen/Monate).
 
 ## 6. Frontend (Flutter, `kitchenowl/`)
 
 **Tab:**
 - `ViewsEnum.tasks` an Index 1; Default `ViewsEnum.values` ergibt: Einkauf, Aufgaben, Rezepte, Planer, Bilanzen, Mehr. Alle Index-Listen in `views_enum.dart` (`toLocalizedString`, `toLocalizedShortString`, `toIcon`, `toSelectedIcon`, `isOptional`) erweitern, besser auf `switch`-Ausdrücke umstellen (sonst Laufzeit-RangeError); `parse`, `floatingActionButton` (Task-FAB), `isViewActive` (`featureTasks ?? false`).
 - `addMissing` ist heute "fehlende Views in Enum-Reihenfolge anhängen" (`more` wird in `household.dart` vorher entfernt und im Enum zuletzt eingefügt). Neu: fehlende View direkt hinter ihrem Vorgänger im Enum einfügen, falls vorhanden, sonst am Anfang. Für `tasks`: hinter `items`, sonst vorne; `more` zuletzt. Gilt generisch, daher mit Test absichern, dass Bestandshaushalte mit vollständiger Liste unverändert bleiben.
-- Weitere Stellen: `household_page.dart` (Switch in `_onItemTapped`, Refresh-Zweig, `MultiBlocProvider` mit `TaskListCubit`), `router.dart` (Shell-Route `tasks`), `sliver_household_feature_settings.dart` (Toggle, Policy-Auswahl, Annahme "`more` zuletzt" bei Reset prüfen), drei Cubits `household_add_cubit`, `household_update_cubit`, `household_add_update_cubit` (jeweils Duplikat der Feature-Logik; für `tasks` ergänzen, besser eine Quelle in `ViewsEnum`).
+- Weitere Stellen: `household_page.dart` (Switch in `_onItemTapped`, Refresh-Zweig, `MultiBlocProvider` mit `TaskListCubit`), `router.dart` (Shell-Route `tasks`), `sliver_household_feature_settings.dart` (Toggle `tasks_feature`, Schalter "Nur Zugewiesene dürfen abhaken", Annahme "`more` zuletzt" bei Reset prüfen), drei Cubits `household_add_cubit`, `household_update_cubit`, `household_add_update_cubit` (jeweils Duplikat der Feature-Logik; für `tasks` ergänzen, besser eine Quelle in `ViewsEnum`).
 - Ein älterer Client verwirft `tasks` aus `view_ordering` beim Speichern; akzeptiert.
 - 6 Einträge in Bottom-Bar/Drawer/Rail visuell prüfen (Material empfiehlt max. 5). Fallback: Aufgaben-Tab ist ohnehin nur bei aktiviertem Feature sichtbar.
 
@@ -98,25 +98,22 @@ Das Backend erzwingt `tasks_feature` nicht (wie Planner, bewusste Entscheidung);
 
 ## 7. Phasen
 
-1. **MVP-A:** Toggle + Policy, Modelle/Migration, CRUD, `recurring`, Rotation, `done` mit 409, Tab, Liste, Tests.
-2. **MVP-B:** Fälligkeit und Wiederholungsintervall, Completion-Endpunkt.
-3. **Später:** Historie-/Statistik-UI pro Person (inkl. `created_by`), Undo (`previous_assigned_to`), Echtzeit via Socket.IO, ggf. Zeitintervall-Rotation, Kalendermonat.
+1. **MVP-A:** Toggle + Schalter, Modelle/Migration, CRUD, `recurring`, Rotation, `done` mit 409, Tab, Liste, Tests.
+2. **MVP-B:** Fälligkeit und Häufigkeit (Tag/Woche/Monat), Completion-Endpunkt.
+3. **Später:** Historie-/Statistik-UI pro Person (inkl. `created_by`), Undo (`previous_assigned_to`), Echtzeit via Socket.IO, ggf. zeitgesteuerte Rotation.
 
 ## 8. Tests
 
-Backend (Muster `test_api_planner.py`): CRUD, gesamte Validierungsmatrix, Rotation inkl. Randfälle, Intervallberechnung (Vergangenheit/Zukunft, `done_on`), Policy-403, 409, Berechtigung fremder Haushalte, User-/Mitglied-/Haushaltslöschung, Migration auf SQLite und PostgreSQL. Flutter: Tests für `addMissing` und Sortierung; vorhandene Teststruktur zuerst prüfen.
+Backend (Muster `test_api_planner.py`): CRUD, gesamte Validierungsmatrix, Rotation inkl. Randfälle, Häufigkeitsberechnung (Tag/Woche/Monat inkl. Monatsende, Vergangenheit/Zukunft, `done_on`), Schalter-403, 409, Berechtigung fremder Haushalte, User-/Mitglied-/Haushaltslöschung, Migration auf SQLite und PostgreSQL. Flutter: Tests für `addMissing` und Sortierung; vorhandene Teststruktur zuerst prüfen.
 
 ## 9. Risiken und Aufwand
 
 - Aufwand realistisch ca. +50–80 % gegenüber dem ursprünglichen Chores-MVP (Backend ca. 10 Dateien, Flutter ca. 15, plus Tests und Migration), mehrere Tage bis 1–2 Wochen.
 - Upstream-Fit: Der Maintainer wollte in #512 keine Fälligkeiten und dachte in #55 an ein Tab-Untermenü. Empfehlung: Konzept vorab als Issue-Kommentar abstimmen und den Fork-Commit "feat: Add household chores tracking feature" (1ARdotNO) vorher sichten (nicht geprüft).
 - Zeitzonen: durch `done_on` entschärft, `due_date` bleibt zeitzonenfreies Datum.
-- `tasks_complete_policy` wird serverseitig erzwungen, `tasks_feature` nicht: bewusst, aber zu dokumentieren.
+- `tasks_only_assignee_can_complete` wird serverseitig erzwungen, `tasks_feature` nicht: bewusst, aber zu dokumentieren.
 
-## 10. Offene Entscheidungen
+## 10. Entscheidungen und Rest
 
-1. **F3-Auslegung:** Gemeint ist aktuell "Wiederholungsintervall frei definierbar, Rotation bei jedem Erledigen". Alternative: Die Rotation wechselt nach Zeitintervall (z. B. wöchentlich Putzplan). Das ändert das Schema (`rotation_interval_days`).
-2. **F4-Auslegung:** Aktuell "Policy wer abhaken darf". Alternative: nur das Aktivieren pro Haushalt (dann entfällt die Policy-Spalte).
-3. **Benennung:** intern `task`, Tab "Aufgaben"/"Tasks" (Alternative "Chores").
-4. **Scope-Split:** MVP-A/B wie in §7 oder in einem Schritt?
-5. Der dritte, leere Anforderungspunkt aus einer früheren Nachricht ist weiter offen.
+Geklärt: Intervall = Häufigkeit der Aufgabe (täglich/wöchentlich/monatlich/eigen); Rotation läuft bei jedem Erledigen. Haushaltsschalter "nur Zugewiesene dürfen abhaken". Intern `task`. Der leere Anforderungspunkt war ein Formatierungsfehler.
+Offen: UI-Name des Tabs (Vorschlag "Aufgaben"/"Tasks"), Scope-Split (siehe §7).
