@@ -1,6 +1,6 @@
 # Konzept: Aufgaben/Chores (Issue #512 und #55, TomBursch/kitchenowl)
 
-Status: **v5, konsolidierter Endstand** (zwei unabhängige Reviews eingearbeitet; frühere Fassungen in der Git-Historie). Offene Entscheidungen siehe §10.
+Status: **umgesetzt (Stand v6)**. Abschnitte 1-11 beschreiben das Konzept, Abschnitt 12 den tatsächlichen Umsetzungsstand und alle Abweichungen.
 
 ## 1. Anforderungen (Stand Auftraggeber)
 
@@ -130,3 +130,34 @@ Offen: UI-Name des Tabs (Vorschlag "Aufgaben"/"Tasks"), Scope-Split (siehe §7).
 8. **`done_on`:** nur Basis für die neue Fälligkeit, `done_at` bleibt Serverzeit. Fehlt `done_on` (alter Client): Server-UTC-Datum. Bereits erledigter Einmal-Task: 409 (nach 403, vor Rotation).
 9. **Wertebereiche:** `repeat_every`: Tag 1–365, Woche 1–52, Monat 1–24. Name nicht leer, max. 128. Datumsüberlauf abfangen (400). Monatsarithmetik mit `calendar.monthrange`. `recurring=true` ohne Häufigkeit und Datum = bleibt dauerhaft stehen (gewollt). UI erzwingt Fälligkeit, sobald eine Häufigkeit gewählt wird.
 10. **Migration:** eine Revision (3 Tabellen, 3 Household-Spalten), `sa.false()` als `server_default`, Head-Revision vorher ermitteln, kein Datenumzug.
+
+## 12. Umsetzungsstand und Abweichungen vom Konzept
+
+**Umgesetzt (Backend)**
+- Modelle `Task`, `TaskParticipant`, `TaskCompletion` (`app/models/task.py`), Logik in `app/service/task.py` (Monatsarithmetik, Fälligkeit ohne Aufholen, Rotation, Entfernen von Nutzern), Controller `app/controller/task/` (`/api/household/<id>/tasks`, `/api/tasks/<id>`, `/done`, `/completions`), Migration `a3f1c7d2b9e4`.
+- Haushalt: `tasks_feature` und `tasks_only_assignee_can_complete` (Standard jeweils aus), nur Admins ändern sie.
+- Aufräumen beim Entfernen eines Mitglieds (`HouseholdMember.delete`) und beim Löschen eines Users (`User.delete`) explizit im Code.
+- 41 neue Backend-Tests (`tests/api/test_api_task.py`), gesamte Suite 143 Tests grün.
+
+**Umgesetzt (App)**
+- Tab "Aufgaben" an Index 1, erster Tab heißt "Einkauf"/"Shopping" (neuer Key `shoppingShort`), `addMissing` fügt hinter dem Vorgänger ein und hält "Mehr" zuletzt.
+- Aufgabenliste (Sortierung, Long-Press zum Erledigen mit Bestätigung, Antippen zum Bearbeiten, "Erledigte anzeigen"), Bearbeiten-Dialog (Zuweisung, Rotation, Teilnehmer, wiederkehrend, Fälligkeit, Wiederholung), Haushaltsschalter in den Einstellungen.
+- 14 neue Flutter-Tests, alle 30 Tests grün, `flutter analyze` ohne Befunde.
+- Zusätzlich behoben (Fund beim Browser-Test): Die Bottom-Bar schnitt bei mehr als fünf aktiven Views den Eintrag "Mehr" ab (`.take(5)`). Jetzt: erste vier Views plus "Mehr", Rest im Mehr-Menü, dessen Einträge nun wirklich navigieren.
+
+**Abweichungen vom Konzept**
+- `task_completion` enthält zusätzlich `task_name` und `previous_assigned_to`; kein `created_by` im Log.
+- Fremdschlüssel ohne `ondelete`-Klauseln (wie im restlichen Projekt); Aufräumen ausschließlich im Code.
+- `UNIQUE(task_id, position)` entfällt, Teilnehmer werden durch Löschen und Neuanlegen neu nummeriert.
+- Namensvalidierung über eigenen Validator: Marshmallow 4 wertet Lambda-Validatoren mit Rückgabewert nicht aus (die bestehenden Haushalts-Schemas sind davon betroffen, hier unverändert).
+- Aufgaben werden nur online geladen und bearbeitet; kein Undo, keine Statistik-Ansicht der Historie (Phase 2).
+- Chores werden im Haushalts-Export nicht mitexportiert (`tasks_feature` schon); kein Socket.IO.
+- Mitglieder, die per Haushaltserstellung hinzugefügt werden, sind standardmäßig Admins (bestehendes Verhalten). Der Haushaltsschalter greift deshalb erst für Mitglieder ohne Adminrechte.
+
+**Test-Ergebnisse (manuell)**
+- Web-Build (Flutter 3.47.2, wie im Projekt gepinnt) im Browser gegen lokales Backend durchgespielt: Tab, Liste, Anlegen mit Rotation, Erledigen (einmalig und wiederkehrend), Schalter, 403-Meldung, Mehr-Menü, Desktop-Ansicht. Migration auf frischer SQLite-DB hoch/runter/hoch.
+
+**Offen / nicht geprüft**
+- Echte Geräte (Android/iOS), PostgreSQL, Datumswähler und Wiederholung im Dialog per UI, Rotation im UI.
+- Bekannter, vorbestehender Fehler: Mit deutscher Browsersprache rendern Textfelder in der Web-Version nicht (auch ohne diese Änderung); deshalb wurde der deutsche Tab-Name "Einkauf" nicht auf dem Bildschirm geprüft.
+- Upstream-Abstimmung (Issue #512/#55 verlangten ursprünglich keine Fälligkeiten) und Abgleich mit dem Fork-Commit von 1ARdotNO stehen aus.
