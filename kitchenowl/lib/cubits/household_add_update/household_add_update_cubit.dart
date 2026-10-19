@@ -13,6 +13,8 @@ abstract class HouseholdAddUpdateCubit<State extends HouseholdAddUpdateState>
 
   void setView(ViewsEnum view, bool value);
 
+  void setTasksOnlyAssigneeCanComplete(bool value);
+
   void reorderView(int oldIndex, int newIndex);
 
   void resetViewOrder();
@@ -25,6 +27,8 @@ abstract class HouseholdAddUpdateState extends Equatable {
   final String? language;
   final bool featurePlanner;
   final bool featureExpenses;
+  final bool featureTasks;
+  final bool tasksOnlyAssigneeCanComplete;
   final List<ViewsEnum> viewOrdering;
 
   final Map<String, String>? supportedLanguages;
@@ -34,6 +38,8 @@ abstract class HouseholdAddUpdateState extends Equatable {
     this.language,
     this.featurePlanner = true,
     this.featureExpenses = true,
+    this.featureTasks = false,
+    this.tasksOnlyAssigneeCanComplete = false,
     this.viewOrdering = ViewsEnum.values,
     this.supportedLanguages,
   });
@@ -44,6 +50,8 @@ abstract class HouseholdAddUpdateState extends Equatable {
         language,
         featurePlanner,
         featureExpenses,
+        featureTasks,
+        tasksOnlyAssigneeCanComplete,
         viewOrdering,
         supportedLanguages,
       ];
@@ -54,6 +62,9 @@ abstract class HouseholdAddUpdateState extends Equatable {
     }
     if (view == ViewsEnum.balances) {
       return featureExpenses;
+    }
+    if (view == ViewsEnum.tasks) {
+      return featureTasks;
     }
 
     return true;

@@ -20,6 +20,8 @@ class HouseholdUpdateCubit
           name: household.name,
           image: household.image,
           featureExpenses: household.featureExpenses ?? true,
+          featureTasks: household.featureTasks ?? false,
+          tasksOnlyAssigneeCanComplete: household.tasksOnlyAssigneeCanComplete,
           featurePlanner: household.featurePlanner ?? true,
           viewOrdering: household.viewOrdering ?? ViewsEnum.values,
           language: household.language,
@@ -68,6 +70,8 @@ class HouseholdUpdateCubit
     emit(HouseholdUpdateState(
       name: household.name,
       featureExpenses: household.featureExpenses ?? true,
+      featureTasks: household.featureTasks ?? false,
+      tasksOnlyAssigneeCanComplete: household.tasksOnlyAssigneeCanComplete,
       featurePlanner: household.featurePlanner ?? true,
       viewOrdering: household.viewOrdering ?? ViewsEnum.values,
       language: household.language,
@@ -118,6 +122,16 @@ class HouseholdUpdateCubit
       emit(state.copyWith(featureExpenses: value));
       saveHousehold();
     }
+    if (view == ViewsEnum.tasks) {
+      emit(state.copyWith(featureTasks: value));
+      saveHousehold();
+    }
+  }
+
+  @override
+  void setTasksOnlyAssigneeCanComplete(bool value) {
+    emit(state.copyWith(tasksOnlyAssigneeCanComplete: value));
+    saveHousehold();
   }
 
   @override
@@ -140,6 +154,8 @@ class HouseholdUpdateCubit
       image: state.image,
       language: state.language,
       featureExpenses: state.featureExpenses,
+      featureTasks: state.featureTasks,
+      tasksOnlyAssigneeCanComplete: state.tasksOnlyAssigneeCanComplete,
       featurePlanner: state.featurePlanner,
       viewOrdering: state.viewOrdering,
       link: state.link,
@@ -324,6 +340,8 @@ class HouseholdUpdateState extends HouseholdAddUpdateState {
     super.language,
     super.featurePlanner = true,
     super.featureExpenses = true,
+    super.featureTasks = false,
+    super.tasksOnlyAssigneeCanComplete = false,
     super.viewOrdering = ViewsEnum.values,
     super.supportedLanguages,
     this.shoppingLists = const [],
@@ -338,6 +356,8 @@ class HouseholdUpdateState extends HouseholdAddUpdateState {
     String? language,
     bool? featurePlanner,
     bool? featureExpenses,
+    bool? featureTasks,
+    bool? tasksOnlyAssigneeCanComplete,
     List<ViewsEnum>? viewOrdering,
     Map<String, String>? supportedLanguages,
     List<Member>? member,
@@ -354,6 +374,9 @@ class HouseholdUpdateState extends HouseholdAddUpdateState {
         language: language ?? this.language,
         featurePlanner: featurePlanner ?? this.featurePlanner,
         featureExpenses: featureExpenses ?? this.featureExpenses,
+        featureTasks: featureTasks ?? this.featureTasks,
+        tasksOnlyAssigneeCanComplete:
+            tasksOnlyAssigneeCanComplete ?? this.tasksOnlyAssigneeCanComplete,
         viewOrdering: viewOrdering ?? this.viewOrdering,
         supportedLanguages: supportedLanguages ?? this.supportedLanguages,
         shoppingLists: shoppingLists ?? this.shoppingLists,
@@ -383,6 +406,8 @@ class LoadingHouseholdUpdateState extends HouseholdUpdateState {
     super.name,
     super.image,
     super.featureExpenses,
+    super.featureTasks,
+    super.tasksOnlyAssigneeCanComplete,
     super.featurePlanner,
     super.viewOrdering,
     super.language,
@@ -398,6 +423,8 @@ class LoadingHouseholdUpdateState extends HouseholdUpdateState {
     String? language,
     bool? featurePlanner,
     bool? featureExpenses,
+    bool? featureTasks,
+    bool? tasksOnlyAssigneeCanComplete,
     List<ViewsEnum>? viewOrdering,
     Map<String, String>? supportedLanguages,
     List<Member>? member,
@@ -414,6 +441,9 @@ class LoadingHouseholdUpdateState extends HouseholdUpdateState {
         language: language ?? this.language,
         featurePlanner: featurePlanner ?? this.featurePlanner,
         featureExpenses: featureExpenses ?? this.featureExpenses,
+        featureTasks: featureTasks ?? this.featureTasks,
+        tasksOnlyAssigneeCanComplete:
+            tasksOnlyAssigneeCanComplete ?? this.tasksOnlyAssigneeCanComplete,
         viewOrdering: viewOrdering ?? this.viewOrdering,
         supportedLanguages: supportedLanguages ?? this.supportedLanguages,
         link: link ?? this.link,

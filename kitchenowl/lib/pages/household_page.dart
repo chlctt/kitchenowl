@@ -5,6 +5,7 @@ import 'package:kitchenowl/cubits/auth_cubit.dart';
 import 'package:kitchenowl/cubits/expense_list_cubit.dart';
 import 'package:kitchenowl/cubits/household_cubit.dart';
 import 'package:kitchenowl/cubits/planner_cubit.dart';
+import 'package:kitchenowl/cubits/task_list_cubit.dart';
 import 'package:kitchenowl/cubits/recipe_list_cubit.dart';
 import 'package:kitchenowl/cubits/shoppinglist_cubit.dart';
 import 'package:kitchenowl/enums/views_enum.dart';
@@ -37,6 +38,7 @@ class _HouseholdPageState extends State<HouseholdPage>
   late final HouseholdCubit householdCubit;
   late final ShoppinglistCubit shoppingListCubit;
   late final RecipeListCubit recipeListCubit;
+  late final TaskListCubit taskListCubit;
   late final PlannerCubit plannerCubit;
   late final ExpenseListCubit expenseListCubit;
 
@@ -46,12 +48,16 @@ class _HouseholdPageState extends State<HouseholdPage>
     householdCubit = HouseholdCubit(widget.household);
     shoppingListCubit = ShoppinglistCubit(widget.household);
     recipeListCubit = RecipeListCubit(widget.household);
+    taskListCubit = TaskListCubit(widget.household);
     plannerCubit = PlannerCubit(widget.household);
     expenseListCubit = ExpenseListCubit(widget.household);
     WidgetsBinding.instance.addObserver(this);
 
     if (router.state.uri.path.contains("recipes")) {
       recipeListCubit.refresh();
+    }
+    if (router.state.uri.path.contains("tasks")) {
+      taskListCubit.refresh();
     }
     if (router.state.uri.path.contains("planner")) {
       plannerCubit.refresh();
@@ -80,6 +86,7 @@ class _HouseholdPageState extends State<HouseholdPage>
     householdCubit.close();
     shoppingListCubit.close();
     recipeListCubit.close();
+    taskListCubit.close();
     plannerCubit.close();
     expenseListCubit.close();
     super.dispose();
@@ -91,6 +98,7 @@ class _HouseholdPageState extends State<HouseholdPage>
       householdCubit.refresh();
       shoppingListCubit.refresh();
       recipeListCubit.refresh();
+      taskListCubit.refresh();
     }
   }
 
@@ -120,6 +128,9 @@ class _HouseholdPageState extends State<HouseholdPage>
         } else {
           shoppingListCubit.refresh();
         }
+        break;
+      case ViewsEnum.tasks:
+        taskListCubit.refresh();
         break;
       case ViewsEnum.recipes:
         if (tapped == current) {
@@ -156,6 +167,7 @@ class _HouseholdPageState extends State<HouseholdPage>
         BlocProvider.value(value: householdCubit),
         BlocProvider.value(value: shoppingListCubit),
         BlocProvider.value(value: recipeListCubit),
+        BlocProvider.value(value: taskListCubit),
         BlocProvider.value(value: plannerCubit),
         BlocProvider.value(value: expenseListCubit),
       ],

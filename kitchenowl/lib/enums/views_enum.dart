@@ -8,9 +8,11 @@ import 'package:kitchenowl/models/household.dart';
 import 'package:kitchenowl/widgets/expense_create_fab.dart';
 import 'package:kitchenowl/widgets/recipe_create_fab.dart';
 import 'package:kitchenowl/widgets/shoppinglist_confirm_remove_fab.dart';
+import 'package:kitchenowl/widgets/task_create_fab.dart';
 
 enum ViewsEnum {
   items,
+  tasks,
   recipes,
   planner,
   balances,
@@ -21,6 +23,7 @@ enum ViewsEnum {
 
     return [
       loc.shoppingList,
+      loc.tasks,
       loc.recipes,
       loc.mealPlanner,
       loc.balances,
@@ -32,7 +35,8 @@ enum ViewsEnum {
     final loc = AppLocalizations.of(context)!;
 
     return [
-      loc.list,
+      loc.shoppingShort,
+      loc.tasks,
       loc.recipes,
       loc.planner,
       loc.balances,
@@ -58,6 +62,7 @@ enum ViewsEnum {
   IconData toIcon(BuildContext context) {
     return [
       Icons.shopping_bag_outlined,
+      Icons.task_alt_outlined,
       Icons.receipt_outlined,
       Icons.calendar_today_outlined,
       Icons.account_balance_outlined,
@@ -68,6 +73,7 @@ enum ViewsEnum {
   IconData toSelectedIcon(BuildContext context) {
     return [
       Icons.shopping_bag_rounded,
+      Icons.task_alt_rounded,
       Icons.receipt_rounded,
       Icons.calendar_today_rounded,
       Icons.account_balance_rounded,
@@ -78,6 +84,7 @@ enum ViewsEnum {
   bool isOptional() {
     return const [
       false,
+      true,
       false,
       true,
       true,
@@ -92,6 +99,12 @@ enum ViewsEnum {
                 .state
                 .isOffline
             ? RecipeCreateFab()
+            : null;
+      case ViewsEnum.tasks:
+        return !BlocProvider.of<AuthCubit>(context, listen: true)
+                .state
+                .isOffline
+            ? const TaskCreateFab()
             : null;
       case ViewsEnum.balances:
         return !BlocProvider.of<AuthCubit>(context, listen: true)
@@ -115,14 +128,26 @@ enum ViewsEnum {
     if (this == ViewsEnum.balances) {
       return household.featureExpenses ?? true;
     }
+    if (this == ViewsEnum.tasks) {
+      return household.featureTasks ?? false;
+    }
 
     return true;
   }
 
-  /// Adds all missing views
+  /// Adds all missing views: each one directly behind its nearest preceding
+  /// view of the default order that is already present (at the start if there
+  /// is none). [more] always stays last.
   static List<ViewsEnum> addMissing(Iterable<ViewsEnum> iterable) {
-    final l = iterable.toList();
-    l.addAll(ViewsEnum.values.where((e) => !iterable.contains(e)));
+    final l = iterable.where((e) => e != ViewsEnum.more).toList();
+    for (final view in ViewsEnum.values) {
+      if (view == ViewsEnum.more || l.contains(view)) continue;
+      final predecessor = ViewsEnum.values
+          .sublist(0, view.index)
+          .lastWhere((e) => l.contains(e), orElse: () => view);
+      l.insert(predecessor == view ? 0 : l.indexOf(predecessor) + 1, view);
+    }
+    l.add(ViewsEnum.more);
 
     return l;
   }
@@ -131,6 +156,8 @@ enum ViewsEnum {
     switch (str) {
       case 'items':
         return ViewsEnum.items;
+      case 'tasks':
+        return ViewsEnum.tasks;
       case 'recipes':
         return ViewsEnum.recipes;
       case 'planner':

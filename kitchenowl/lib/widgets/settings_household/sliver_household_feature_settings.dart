@@ -64,6 +64,30 @@ class SliverHouseholdFeatureSettings<
                 .toList(),
           ),
         ),
+        BlocBuilder<Cubit, State>(
+          buildWhen: (previous, current) =>
+              previous.featureTasks != current.featureTasks ||
+              previous.tasksOnlyAssigneeCanComplete !=
+                  current.tasksOnlyAssigneeCanComplete,
+          builder: (context, state) => state.featureTasks
+              ? ListTile(
+                  title: Text(
+                    AppLocalizations.of(context)!.taskOnlyAssigneeCanComplete,
+                  ),
+                  subtitle: Text(
+                    AppLocalizations.of(context)!
+                        .taskOnlyAssigneeCanCompleteDescription,
+                  ),
+                  leading: const Icon(Icons.assignment_ind_outlined),
+                  contentPadding: const EdgeInsets.only(left: 16, right: 16),
+                  trailing: KitchenOwlSwitch(
+                    value: state.tasksOnlyAssigneeCanComplete,
+                    onChanged: BlocProvider.of<Cubit>(context)
+                        .setTasksOnlyAssigneeCanComplete,
+                  ),
+                )
+              : const SizedBox.shrink(),
+        ),
         Center(child: Text(AppLocalizations.of(context)!.longPressToReorder)),
         const SizedBox(height: 8),
         const Divider(indent: 16, endIndent: 16),

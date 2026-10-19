@@ -40,6 +40,14 @@ class HouseholdAddCubit extends HouseholdAddUpdateCubit<HouseholdAddState> {
     if (view == ViewsEnum.balances) {
       emit(state.copyWith(featureExpenses: value));
     }
+    if (view == ViewsEnum.tasks) {
+      emit(state.copyWith(featureTasks: value));
+    }
+  }
+
+  @override
+  void setTasksOnlyAssigneeCanComplete(bool value) {
+    emit(state.copyWith(tasksOnlyAssigneeCanComplete: value));
   }
 
   @override
@@ -86,6 +94,8 @@ class HouseholdAddCubit extends HouseholdAddUpdateCubit<HouseholdAddState> {
       language: _state.language,
       featurePlanner: _state.featurePlanner,
       featureExpenses: _state.featureExpenses,
+      featureTasks: _state.featureTasks,
+      tasksOnlyAssigneeCanComplete: _state.tasksOnlyAssigneeCanComplete,
       viewOrdering: _state.viewOrdering,
       member: _state.members,
     ));
@@ -109,6 +119,8 @@ class HouseholdAddState extends HouseholdAddUpdateState {
     super.language,
     super.featurePlanner = true,
     super.featureExpenses = true,
+    super.featureTasks = false,
+    super.tasksOnlyAssigneeCanComplete = false,
     super.viewOrdering = ViewsEnum.values,
     super.supportedLanguages,
     this.members = const [],
@@ -120,6 +132,8 @@ class HouseholdAddState extends HouseholdAddUpdateState {
     Nullable<String>? language,
     bool? featurePlanner,
     bool? featureExpenses,
+    bool? featureTasks,
+    bool? tasksOnlyAssigneeCanComplete,
     List<ViewsEnum>? viewOrdering,
     Map<String, String>? supportedLanguages,
     List<Member>? members,
@@ -130,6 +144,9 @@ class HouseholdAddState extends HouseholdAddUpdateState {
         language: (language ?? Nullable(this.language)).value,
         featurePlanner: featurePlanner ?? this.featurePlanner,
         featureExpenses: featureExpenses ?? this.featureExpenses,
+        featureTasks: featureTasks ?? this.featureTasks,
+        tasksOnlyAssigneeCanComplete:
+            tasksOnlyAssigneeCanComplete ?? this.tasksOnlyAssigneeCanComplete,
         viewOrdering: viewOrdering ?? this.viewOrdering,
         supportedLanguages: supportedLanguages ?? this.supportedLanguages,
         members: members ?? this.members,

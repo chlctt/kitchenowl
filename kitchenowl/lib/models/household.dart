@@ -13,6 +13,8 @@ class Household extends Model {
   final String? language;
   final bool? featurePlanner;
   final bool? featureExpenses;
+  final bool? featureTasks;
+  final bool tasksOnlyAssigneeCanComplete;
   final List<ViewsEnum>? viewOrdering;
   final List<Member>? member;
   final ShoppingList? defaultShoppingList;
@@ -28,6 +30,8 @@ class Household extends Model {
     this.language,
     this.featurePlanner,
     this.featureExpenses,
+    this.featureTasks,
+    this.tasksOnlyAssigneeCanComplete = false,
     this.viewOrdering,
     this.member,
     this.defaultShoppingList,
@@ -57,6 +61,9 @@ class Household extends Model {
       language: map['language'],
       featurePlanner: map['planner_feature'] ?? false,
       featureExpenses: map['expenses_feature'] ?? false,
+      featureTasks: map['tasks_feature'] ?? false,
+      tasksOnlyAssigneeCanComplete:
+          map['tasks_only_assignee_can_complete'] ?? false,
       description: map['description'],
       link: map['link'],
       verified: map['verified'] ?? false,
@@ -77,6 +84,8 @@ class Household extends Model {
     bool? verified,
     bool? featurePlanner,
     bool? featureExpenses,
+    bool? featureTasks,
+    bool? tasksOnlyAssigneeCanComplete,
     List<ViewsEnum>? viewOrdering,
   }) =>
       Household(
@@ -87,6 +96,9 @@ class Household extends Model {
         language: language ?? this.language,
         featurePlanner: featurePlanner ?? this.featurePlanner,
         featureExpenses: featureExpenses ?? this.featureExpenses,
+        featureTasks: featureTasks ?? this.featureTasks,
+        tasksOnlyAssigneeCanComplete:
+            tasksOnlyAssigneeCanComplete ?? this.tasksOnlyAssigneeCanComplete,
         viewOrdering: viewOrdering ?? this.viewOrdering,
         description: description ?? this.description,
         link: link ?? this.link,
@@ -102,6 +114,8 @@ class Household extends Model {
         language,
         featurePlanner,
         featureExpenses,
+        featureTasks,
+        tasksOnlyAssigneeCanComplete,
         viewOrdering,
         member,
         defaultShoppingList,
@@ -128,6 +142,10 @@ class Household extends Model {
     if (featureExpenses != null) {
       data['expenses_feature'] = featureExpenses;
     }
+    if (featureTasks != null) {
+      data['tasks_feature'] = featureTasks;
+    }
+    data['tasks_only_assignee_can_complete'] = tasksOnlyAssigneeCanComplete;
     if (viewOrdering != null) {
       data['view_ordering'] = viewOrdering!.map((e) => e.toString()).toList()
         ..remove(ViewsEnum.more.toString());
