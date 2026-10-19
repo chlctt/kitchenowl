@@ -8,7 +8,7 @@ Ausgangspunkt #512 (rotierende Haushalts-Chores) und #55 (ToDo-Listen), erweiter
 
 - Allgemeine Aufgaben ("Tasks") pro Haushalt, einzeilig, ohne Unteraufgaben und ohne Gamification.
 - Zuweisung: fest (ein Mitglied), offen (niemand) oder Rotation (`ordered` fest oder `random` zufällig).
-- Fälligkeit optional. Merkmal "wiederkehrend" (`recurring`): wiederkehrende Aufgaben bleiben stehen, einmalige verschwinden beim Erledigen. Wiederholungsintervall in Tagen frei definierbar.
+- Fälligkeit optional. Merkmal "wiederkehrend" (`recurring`): wiederkehrende Aufgaben bleiben stehen, einmalige verschwinden beim Erledigen. Häufigkeit frei definierbar (alle N Tage/Wochen/Monate).
 - Wer abhaken darf, ist pro Haushalt einstellbar (`anyone` | `assignee`).
 - Erledigt-Historie wird mitgeschrieben, Auswertung pro Person in Phase 2.
 - UI: Long-Press = erledigt. Neuer Tab direkt nach dem ersten Tab. Der erste Tab heißt künftig "Einkauf" (statt "Liste").
@@ -94,7 +94,7 @@ Das Backend erzwingt `tasks_feature` nicht (wie Planner, bewusste Entscheidung);
 
 **Umbenennung:** neuer Key `shoppingShort` (de "Einkauf", en "Shopping") nur für den Tab-Kurznamen in `views_enum.dart`; `loc.list` bleibt (wird auch in `settings_page.dart` genutzt). Andere Sprachen fallen bis zur Weblate-Übersetzung auf en zurück.
 
-**Aufgaben-Seite:** einspaltige Liste; Sortierung überfällig → nach Fälligkeit → eigene → alphabetisch; undatierte folgen den datierten. Zeile: Name, Zuständiger, Fälligkeit (überfällig rot). Long-Press = erledigt mit Bestätigung. Tap = Bearbeiten (Name, Zuweisung/offen, Rotation + Teilnehmer, wiederkehrend, Fälligkeit, Intervall). Chores nur online. ca. 20 neue l10n-Keys in `app_en.arb`.
+**Aufgaben-Seite:** einspaltige Liste; Sortierung überfällig → nach Fälligkeit → eigene → alphabetisch; undatierte folgen den datierten. Zeile: Name, Zuständiger, Fälligkeit (überfällig rot). Long-Press = erledigt mit Bestätigung. Tap = Bearbeiten (Name, Zuweisung/offen, Rotation + Teilnehmer, wiederkehrend, Fälligkeit, Intervall). Aufgaben nur online. ca. 20 neue l10n-Keys in `app_en.arb`.
 
 ## 7. Phasen
 
@@ -108,7 +108,7 @@ Backend (Muster `test_api_planner.py`): CRUD, gesamte Validierungsmatrix, Rotati
 
 ## 9. Risiken und Aufwand
 
-- Aufwand realistisch ca. +50–80 % gegenüber dem ursprünglichen Chores-MVP (Backend ca. 10 Dateien, Flutter ca. 15, plus Tests und Migration), mehrere Tage bis 1–2 Wochen.
+- Aufwand realistisch ca. +50–80 % gegenüber einem reinen Rotations-MVP (Backend ca. 10 Dateien, Flutter ca. 15, plus Tests und Migration), ca. 2 Wochen (Backend 3–4 Tage, Flutter 4–5 Tage, Feinschliff 1–2 Tage).
 - Upstream-Fit: Der Maintainer wollte in #512 keine Fälligkeiten und dachte in #55 an ein Tab-Untermenü. Empfehlung: Konzept vorab als Issue-Kommentar abstimmen und den Fork-Commit "feat: Add household chores tracking feature" (1ARdotNO) vorher sichten (nicht geprüft).
 - Zeitzonen: durch `done_on` entschärft, `due_date` bleibt zeitzonenfreies Datum.
 - `tasks_only_assignee_can_complete` wird serverseitig erzwungen, `tasks_feature` nicht: bewusst, aber zu dokumentieren.
@@ -117,3 +117,16 @@ Backend (Muster `test_api_planner.py`): CRUD, gesamte Validierungsmatrix, Rotati
 
 Geklärt: Intervall = Häufigkeit der Aufgabe (täglich/wöchentlich/monatlich/eigen); Rotation läuft bei jedem Erledigen. Haushaltsschalter "nur Zugewiesene dürfen abhaken". Intern `task`. Der leere Anforderungspunkt war ein Formatierungsfehler.
 Offen: UI-Name des Tabs (Vorschlag "Aufgaben"/"Tasks"), Scope-Split (siehe §7).
+
+## 11. Review 3: Korrekturen (gelten vor allem Früheren)
+
+1. **Admin-Definition:** "Admin" = `HouseholdMember.admin` oder `owner` des Haushalts. `authorize_household` lässt zusätzlich Server-Admins durch (`helpers/authorize_household.py`); diese gelten ebenfalls. Eine Hilfsfunktion `is_household_admin` wird für Schalter und `assigned_to`-Änderung genutzt; `/tasks/<id>` und `/done` prüfen über `checkAuthorized`/`isAuthorized`.
+2. **Household-API:** `tasks_feature` und `tasks_only_assignee_can_complete` in `controller/household/schemas.py` und `household_controller.py` (Create und Update, Update nur `RequiredRights.ADMIN`) ergänzen.
+3. **Positionen:** `UNIQUE(task_id, position)` entfällt (nicht deferrable auf PostgreSQL, Neunummerieren scheitert sonst mittendrin). Sortierung nur über Index; beim Ändern/Entfernen werden Teilnehmer in Python neu nummeriert (Zeilen löschen und neu einfügen).
+4. **Random-Rotation und Mitglied-Entfernung:** `random` hat keinen Nachfolger; bei Entfernung des Zuständigen wird zufällig ein verbleibender Teilnehmer gewählt. Bei aktivem Schalter bleibt ein offener Task für jedes Mitglied abhakbar. `User.delete()` räumt alle Haushalte des Users auf. Die Aufräumlogik läuft vor der Owner-Übergabe in derselben Transaktion.
+5. **Historie beim Löschen:** Löschen eines Tasks löscht dessen Completions (bewusst, MVP). `task_completion` erhält zusätzlich `task_name` (Snapshot) für spätere Auswertung. Indizes: `task.household_id`, `task.assigned_to`, `task_completion.task_id`/`household_id`.
+6. **`addMissing`:** Auflösung iterativ in Enum-Reihenfolge, fehlende View hinter ihren nächsten vorhandenen Vorgänger im Enum, sonst an den Anfang; `more` zuletzt. Sichtbarer Index-Sprung für Bestandshaushalte (gemerkter Tab, Deeplinks) wird akzeptiert. Neuer Test in `kitchenowl/test/models/household_test.dart`.
+7. **Startseite:** `router.dart:256` nimmt `viewOrdering.first`; inaktive Views (Feature aus) werden vorher herausgefiltert. `tasks` Default `false` in `fromJson`, `isViewActive` und allen drei Cubits.
+8. **`done_on`:** nur Basis für die neue Fälligkeit, `done_at` bleibt Serverzeit. Fehlt `done_on` (alter Client): Server-UTC-Datum. Bereits erledigter Einmal-Task: 409 (nach 403, vor Rotation).
+9. **Wertebereiche:** `repeat_every`: Tag 1–365, Woche 1–52, Monat 1–24. Name nicht leer, max. 128. Datumsüberlauf abfangen (400). Monatsarithmetik mit `calendar.monthrange`. `recurring=true` ohne Häufigkeit und Datum = bleibt dauerhaft stehen (gewollt). UI erzwingt Fälligkeit, sobald eine Häufigkeit gewählt wird.
+10. **Migration:** eine Revision (3 Tabellen, 3 Household-Spalten), `sa.false()` als `server_default`, Head-Revision vorher ermitteln, kein Datenumzug.
